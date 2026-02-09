@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>タイピング・バスターズ EX ゴールド</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        :root { --game-height: 100%; }
+        body {
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            background-color: #0f172a;
+            overflow: hidden;
+            touch-action: manipulation;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #app-container {
+            width: 100%;
+            max-width: 500px;
+            height: 100%;
+            max-height: 900px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            border: 4px solid #334155;
+            overflow: hidden;
+        }
+        #enemy-container {
+            position: relative;
+            width: 280px;
+            height: 280px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #enemy-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            transition: transform 0.1s linear, opacity 0.3s;
+            filter: drop-shadow(0 0 20px rgba(56, 189, 248, 0.5));
+        }
+        .key-btn {
+            background: #334155;
+            border-bottom: 4px solid #1e293b;
+            transition: all 0.05s;
+            user-select: none;
+            font-size: 1.25rem;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .key-btn:active {
+            transform: translateY(2px);
+            border-bottom-width: 2px;
+            background: #facc15;
+            color: #0f172a;
+        }
+        .shake { animation: shake 0.2s infinite; }
+        @keyframes shake {
+            0% { transform: translate(2px, 2px); }
+            50% { transform: translate(-2px, -2px); }
+            100% { transform: translate(2px, 2px); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <div id="start-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center p-6 bg-slate-900/95">
+        <div class="mb-4 text-7xl animate-bounce">⚔️</div>
+        <h1 class="text-4xl font-black text-center text-yellow-400 mb-2 leading-tight">TYPING<br>BUSTERS EX</h1>
+        <p class="text-cyan-400 font-bold mb-6">GOLD EDITION</p>
+        <p class="text-slate-300 text-center mb-8 text-sm">タイピングでモンスターを撃破せよ！<br>（音量ONがおすすめ！）</p>
+        <button id="start-btn" class="w-full py-5 text-2xl font-bold bg-yellow-400 text-slate-900 rounded-2xl shadow-[0_0_20px_rgba(250,204,21,0.5)] active:scale-95">
+            バトル開始！
+        </button>
+    </div>
+
+    <div id="result-screen" class="hidden absolute inset-0 z-50 flex flex-col items-center justify-center p-6 bg-red-900/95 text-white">
+        <h2 class="text-5xl font-black mb-2">GAME OVER</h2>
+        <div class="text-2xl mb-2">FINAL SCORE</div>
+        <div id="final-score" class="text-7xl font-black text-yellow-400 mb-10">0</div>
+        <button id="retry-btn" class="w-full py-5 text-2xl font-bold bg-white text-red-600 rounded-2xl shadow-xl">
+            もう一度挑戦
+        </button>
+    </div>
+
+    <div class="flex justify-between items-center p-4 bg-slate-900/80 border-b border-slate-700">
+        <div>
+            <span class="text-xs text-slate-400 block">SCORE</span>
+            <span id="score-val" class="text-2xl text-yellow-400 font-bold">0</span>
+        </div>
+        <div id="combo-display" class="text-lg font-bold bg-pink-500 text-white px-4 py-1 rounded-full opacity-0 transition-opacity">
+            0 COMBO
+        </div>
+    </div>
+
+    <div class="relative flex-grow flex items-center justify-center">
+        <div id="danger-overlay" class="absolute inset-0 bg-red-600 opacity-0 pointer-events-none transition-opacity"></div>
+        <div id="enemy-container">
+            <img id="enemy-img" src="" alt="enemy">
+        </div>
+    </div>
+
+    <div class="bg-slate-800/90 p-4 border-t-4 border-slate-700">
+        <div id="word-display-jp" class="text-center text-2xl text-white mb-2 font-black tracking-wider">準備はいいか？</div>
+        
+        <div class="flex flex-col gap-1 items-center justify-center">
+            <div id="word-target" class="text-center font-black tracking-[0.2em] text-slate-500 break-all leading-tight" style="font-size: 1.4rem;">READY</div>
+            
+            <div id="word-input-feedback" class="text-center font-black tracking-[0.2em] text-yellow-400 break-all leading-tight min-h-[1.5rem]" style="font-size: 1.4rem;"></div>
+        </div>
+        
+        <div class="mt-4 w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
+            <div id="danger-bar" class="h-full bg-gradient-to-r from-green-400 to-red-500 w-0 transition-all duration-100"></div>
+        </div>
+    </div>
+
+    <div class="p-1 bg-slate-900 grid grid-cols-1 gap-1 pb-4">
+        <div class="flex justify-center gap-1">
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('Q')">Q</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('W')">W</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('E')">E</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('R')">R</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('T')">T</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('Y')">Y</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('U')">U</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('I')">I</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('O')">O</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('P')">P</button>
+        </div>
+        <div class="flex justify-center gap-1 px-2">
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('A')">A</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('S')">S</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('D')">D</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('F')">F</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('G')">G</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('H')">H</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('J')">J</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('K')">K</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('L')">L</button>
+        </div>
+        <div class="flex justify-center gap-1 px-4">
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('Z')">Z</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('X')">X</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('C')">C</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('V')">V</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('B')">B</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('N')">N</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('M')">M</button>
+            <button class="key-btn flex-1 py-3 rounded text-white font-bold" onclick="handleKey('-')">-</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const IMAGES = {
+        boss: "images/Boss-level_monster_character_design_massive_intim-1770627396157.png",
+        speed: "images/Speed-type_enemy_monster_character_design_small_a-1770627402912.png",
+        slime: "images/Common_enemy_monster_character_design_cute_blue_s-1770627386341.png",
+        cat: "images/Remove_background_from_street_cat_image-1770554177739.png",
+        pigeon: "images/Remove_background_from_street_pigeon_image-1770554210587.png",
+        alien: "images/A_mysterious_alien_creature_character_front-facin-1770628039596.png",
+        knight: "images/A_brave_female_knight_warrior_character_front-fac-1770628047272.png",
+        robot: "images/A_powerful_futuristic_robot_character_front-facin-1770628061903.png",
+        ghost: "images/A_spooky_ghost_reaper_character_front-facing_view-1770628056217.png",
+        food: "images/A_cute_food_monster_character_front-facing_view_-1770628034987.png"
+    };
+
+    const WORD_LIST = [
+        { en: "NORANEKO", jp: "野良猫", img: IMAGES.cat },
+        { en: "HEIWANOHATO", jp: "平和のハト", img: IMAGES.pigeon },
+        { en: "NONBIRISANPO", jp: "のんびり散歩", img: IMAGES.cat },
+        { en: "OOZORAOTOBUTORI", jp: "大空を飛ぶ鳥", img: IMAGES.pigeon },
+        { en: "AOIUMI", jp: "青い海", img: IMAGES.slime },
+        { en: "NINJANODASHU", jp: "忍者のダッシュ", img: IMAGES.speed },
+        { en: "KYODAIROBOTTO", jp: "巨大ロボット", img: IMAGES.robot },
+        { en: "SEIKISHI", jp: "聖騎士", img: IMAGES.knight },
+        { en: "NAZONOSEIMEITAI", jp: "謎の生命体", img: IMAGES.alien },
+        { en: "SHAKUNETSUNODORAGON", jp: "灼熱のドラゴン", img: IMAGES.boss },
+        { en: "BURUSURAIMU", jp: "ブルースライム", img: IMAGES.slime },
+        { en: "YAMINOSHINIGAMI", jp: "闇の死神", img: IMAGES.ghost },
+        { en: "HANBAGAA", jp: "ハンバーガー", img: IMAGES.food },
+        { en: "ATSUIBATORU", jp: "熱いバトル", img: IMAGES.speed },
+        { en: "DENSETSUNOKEN", jp: "伝説の剣", img: IMAGES.knight },
+        { en: "PIZAPA", jp: "ピザパ", img: IMAGES.food },
+        { en: "REBERUAGE", jp: "レベル上げ", img: IMAGES.robot },
+        { en: "CHOTENNITATSUMONO", jp: "頂点に立つ者", img: IMAGES.robot },
+        { en: "KASOGENJITSUNOSEKAI", jp: "仮想現実の世界", img: IMAGES.alien },
+        { en: "SHURIKEN", jp: "手裏剣", img: IMAGES.speed },
+        { en: "SORATOUBUENBAN", jp: "空飛ぶ円盤", img: IMAGES.alien },
+        { en: "SAIGONOTAKAI", jp: "最後の戦い", img: IMAGES.boss },
+        { en: "HISSATSUNOICHIGEKI", jp: "必殺の一撃", img: IMAGES.knight },
+        { en: "GENKAICHO战士", jp: "限界超戦士", img: IMAGES.boss },
+        { en: "AMUIGOHOBI", jp: "甘いご褒美", img: IMAGES.food },
+        { en: "SAIKONONATSUYASUMI", jp: "最高の夏休み", img: IMAGES.cat },
+        { en: "TANOSHIMAINICHI", jp: "楽しい毎日", img: IMAGES.cat },
+        { en: "ATSUIUNDOKAI", jp: "熱い運動会", img: IMAGES.speed },
+        { en: "KYUSHOKUNOJIKAN", jp: "給食の時間", img: IMAGES.food },
+        { en: "MAHOTSUE", jp: "魔法の杖", img: IMAGES.ghost },
+        { en: "BUNSHINNOJUTSU", jp: "分身の術", img: IMAGES.speed },
+        { en: "NEKONOOUSAMA", jp: "猫の王様", img: IMAGES.cat },
+        { en: "YUSHANOTAMASHII", jp: "勇者の魂", img: IMAGES.knight },
+        { en: "YUREINOSHOJO", jp: "幽霊の少女", img: IMAGES.ghost },
+        { en: "NEONGAI", jp: "ネオン街", img: IMAGES.robot },
+        { en: "SHIAWASENAKETSUMATSU", jp: "幸せな結末", img: IMAGES.knight },
+        { en: "DAIHIHO", jp: "大秘宝", img: IMAGES.cat },
+        { en: "NINJANOHASHIRI", jp: "忍者の走り", img: IMAGES.speed },
+        { en: "NANATSUNOTAMA", jp: "七つの球", img: IMAGES.boss },
+        { en: "PINKUNOMARU", jp: "ピンクの丸", img: IMAGES.slime },
+        { en: "HITOTTOBI", jp: "ひとっ飛び", img: IMAGES.speed },
+        { en: "YUSHANODENSETSU", jp: "勇者の伝説", img: IMAGES.knight },
+        { en: "BUROKKUKENCHIKU", jp: "ブロック建築", img: IMAGES.slime },
+        { en: "NAWABARIDASOI", jp: "ナワバリ争い", img: IMAGES.slime },
+        { en: "DOBUTSUNOMURA", jp: "どうぶつの村", img: IMAGES.cat },
+        { en: "ZENSHUCHUNOKOKYU", jp: "全集中の呼吸", img: IMAGES.knight },
+        { en: "JUJUTSUSHINOTAKAI", jp: "呪術師の戦い", img: IMAGES.ghost },
+        { en: "KARISOMENOKAZOKU", jp: "仮初めの家族", img: IMAGES.alien }
+    ];
+
+    const Sound = {
+        ctx: null,
+        init() {
+            if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        },
+        play(freq, type, duration, vol = 0.1) {
+            this.init();
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+            gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start();
+            osc.stop(this.ctx.currentTime + duration);
+        },
+        type() { this.play(800, 'sine', 0.05, 0.1); },
+        miss() { this.play(150, 'sawtooth', 0.2, 0.1); },
+        defeat() {
+            this.play(400, 'square', 0.3, 0.1);
+            setTimeout(() => this.play(200, 'sawtooth', 0.4, 0.1), 50);
+        }
+    };
+
+    let state = {
+        score: 0,
+        combo: 0,
+        currentWord: null,
+        typed: "",
+        distance: 0,
+        active: false,
+        speed: 4.5
+    };
+
+    const elements = {
+        start: document.getElementById('start-screen'),
+        result: document.getElementById('result-screen'),
+        enemyImg: document.getElementById('enemy-img'),
+        wordTarget: document.getElementById('word-target'),
+        wordJp: document.getElementById('word-display-jp'),
+        wordInput: document.getElementById('word-input-feedback'),
+        score: document.getElementById('score-val'),
+        finalScore: document.getElementById('final-score'),
+        dangerBar: document.getElementById('danger-bar'),
+        dangerOverlay: document.getElementById('danger-overlay'),
+        combo: document.getElementById('combo-display')
+    };
+
+    function init() {
+        Sound.init();
+        state.score = 0;
+        state.combo = 0;
+        state.speed = 4.5; 
+        state.active = true;
+        state.distance = 0;
+        elements.score.innerText = "0";
+        elements.start.classList.add('hidden');
+        elements.result.classList.add('hidden');
+        nextEnemy();
+        requestAnimationFrame(loop);
+    }
+
+    function nextEnemy() {
+        state.currentWord = WORD_LIST[Math.floor(Math.random() * WORD_LIST.length)];
+        state.typed = "";
+        state.distance = 0;
+        
+        elements.wordJp.innerText = state.currentWord.jp;
+        elements.wordTarget.innerText = state.currentWord.en;
+        elements.wordInput.innerText = "";
+        
+        elements.enemyImg.src = state.currentWord.img;
+        elements.enemyImg.style.opacity = "1";
+        
+        updateUI();
+    }
+
+    function handleKey(char) {
+        if (!state.active) return;
+        
+        const target = state.currentWord.en;
+        const nextChar = target[state.typed.length];
+
+        if (char === nextChar) {
+            state.typed += char;
+            // 3行目のフィードバック用エリアに文字を追加
+            elements.wordInput.innerText = state.typed;
+            Sound.type();
+            
+            if (state.typed === target) {
+                defeat();
+            }
+        } else {
+            state.combo = 0;
+            Sound.miss();
+            updateCombo();
+            // ミス時にターゲット行を赤く光らせる
+            elements.wordTarget.classList.add('text-red-500');
+            setTimeout(() => elements.wordTarget.classList.remove('text-red-500'), 100);
+        }
+    }
+
+    window.addEventListener('keydown', (e) => {
+        if (!state.active) return;
+        const key = e.key.toUpperCase();
+        if (/^[A-Z]$/.test(key)) {
+            handleKey(key);
+        }
+    });
+
+    function defeat() {
+        Sound.defeat();
+        state.score += (100 + (state.combo * 20));
+        state.combo++;
+        state.speed += 0.2; 
+        
+        elements.score.innerText = state.score;
+        updateCombo();
+        
+        elements.enemyImg.style.transform = `scale(1.8) rotate(15deg)`;
+        elements.enemyImg.style.opacity = "0";
+        
+        setTimeout(nextEnemy, 300);
+    }
+
+    function updateCombo() {
+        if (state.combo > 1) {
+            elements.combo.innerText = `${state.combo} COMBO`;
+            elements.combo.style.opacity = "1";
+        } else {
+            elements.combo.style.opacity = "0";
+        }
+    }
+
+    function updateUI() {
+        const scale = 0.3 + (state.distance / 100) * 1.0;
+        elements.enemyImg.style.transform = `scale(${scale})`;
+        elements.dangerBar.style.width = `${state.distance}%`;
+        
+        if (state.distance > 75) {
+            elements.enemyImg.classList.add('shake');
+            elements.dangerOverlay.style.opacity = (state.distance - 75) / 25;
+        } else {
+            elements.enemyImg.classList.remove('shake');
+            elements.dangerOverlay.style.opacity = "0";
+        }
+    }
+
+    let lastTime = 0;
+    function loop(time) {
+        if (!state.active) return;
+        
+        const dt = (time - lastTime) / 1000;
+        if (lastTime > 0) {
+            state.distance += state.speed * dt;
+        }
+        lastTime = time;
+
+        updateUI();
+
+        if (state.distance >= 100) {
+            endGame();
+        } else {
+            requestAnimationFrame(loop);
+        }
+    }
+
+    function endGame() {
+        state.active = false;
+        lastTime = 0;
+        elements.result.classList.remove('hidden');
+        elements.finalScore.innerText = state.score;
+    }
+
+    document.getElementById('start-btn').onclick = init;
+    document.getElementById('retry-btn').onclick = init;
+</script>
+</body>
+</html>
